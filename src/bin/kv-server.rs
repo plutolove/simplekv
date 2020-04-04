@@ -10,6 +10,7 @@ use std::fs;
 use std::net::SocketAddr;
 use std::process::exit;
 use structopt::StructOpt;
+use simplekv::thread_pool::{SharedQueueThreadPool, ThreadPool};
 
 const DEFAULT_LISTENING_ADDRESS: &str = "127.0.0.1:6666";
 const DEFAULT_ENGINE: Engine = Engine::kvstore;
@@ -58,8 +59,8 @@ fn current_engine() -> Result<Option<Engine>> {
     }
 }
 
-fn run_with_engine<E: KvEngine>(engine: E, addr: SocketAddr) -> Result<()> {
-    let server = KvServer::new(engine);
+fn run_with_engine<E: KvEngine, P: ThreadPool>(engine: E, pool: P, addr: SocketAddr) -> Result<()> {
+    let server = KvServer::new(engine, pool);
     server.run(addr)
 }
 
@@ -69,11 +70,12 @@ fn run(opt: Opt) -> Result<()> {
     info!("Storage engine: {}", engine);
     info!("Listening on {}", opt.addr);
 
+    let pool = SharedQueueThreadPool::new(4)?;
     // write engine to engine file
     fs::write(current_dir()?.join("engine"), format!("{}", engine))?;
 
     match engine {
-        Engine::kvstore => run_with_engine(KvStore::open(current_dir()?)?, opt.addr),
+        Engine::kvstore => run_with_engine(KvStore::open(current_dir()?)?, pool, opt.addr),
         Engine::sled => {
             error!("not implement");
             Ok(())
