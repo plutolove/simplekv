@@ -14,7 +14,7 @@ impl<E: KvEngine, P: ThreadPool> KvServer<E, P> {
     pub fn new(engine: E, pool: P) -> Self {
         KvServer { engine, pool}
     }
-    pub fn run<A: ToSocketAddrs>(mut self, addr: A) -> Result<()> {
+    pub fn run<A: ToSocketAddrs>(self, addr: A) -> Result<()> {
         let listener = TcpListener::bind(addr)?;
         for stream in listener.incoming() {
             let engine = self.engine.clone();

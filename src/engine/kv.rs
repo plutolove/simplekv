@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap};
 use std::ffi::OsStr;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
@@ -71,24 +71,6 @@ fn load(
     }
     Ok(uncompacted)
 }
-
-fn new_log_file(
-    path: &Path,
-    version: u64,
-    readers: &mut HashMap<u64, BufReaderWithIndex<File>>,
-) -> Result<BufWriterWithIndex<File>> {
-    let path = log_path(&path, version);
-    let writer = BufWriterWithIndex::new(
-        OpenOptions::new()
-            .create(true)
-            .write(true)
-            .append(true)
-            .open(&path)?,
-    )?;
-    readers.insert(version, BufReaderWithIndex::new(File::open(&path)?)?);
-    Ok(writer)
-}
-
 
 struct KvStoreReader {
     path: Arc<PathBuf>,
@@ -201,9 +183,9 @@ impl KvStoreWriter {
         let compact_version = self.curr_version + 1;
         self.curr_version += 2;
 
-        self.writer = new_log_file_(&self.path, self.curr_version)?;
+        self.writer = new_log_file(&self.path, self.curr_version)?;
 
-        let mut compact_writer = new_log_file_(&self.path, compact_version)?;
+        let mut compact_writer = new_log_file(&self.path, compact_version)?;
 
         let mut new_pos = 0;
         for entry in self.index.iter() {
@@ -236,7 +218,7 @@ impl KvStoreWriter {
     }
 }
 
-fn new_log_file_(path: &Path, gen: u64) -> Result<BufWriterWithIndex<File>> {
+fn new_log_file(path: &Path, gen: u64) -> Result<BufWriterWithIndex<File>> {
     let path = log_path(&path, gen);
     let writer = BufWriterWithIndex::new(
         OpenOptions::new()
@@ -277,7 +259,7 @@ impl KvStore {
         }
 
         let current_gen = gen_list.last().unwrap_or(&0) + 1;
-        let writer = new_log_file_(&path, current_gen)?;
+        let writer = new_log_file(&path, current_gen)?;
         let safe_point = Arc::new(AtomicU64::new(0));
 
         let reader = KvStoreReader {
